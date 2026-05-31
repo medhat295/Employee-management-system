@@ -8,8 +8,10 @@ import {
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import type { Company, Department, Employee } from '../types';
+import { getInitials } from '../utils/format';
+import { InlineStatCard } from '../components/ui/InlineStatCard';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers (Profile-specific formats) ───────────────────────────────────────
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', {
@@ -31,15 +33,10 @@ function formatTenure(days: number): string {
   return `${days} day${days !== 1 ? 's' : ''}`;
 }
 
-function getInitials(str: string) {
-  return str.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
-}
+// ── Role metadata ─────────────────────────────────────────────────────────────
 
 const ROLE_META: Record<string, {
-  label: string;
-  badge: string;
-  heroBadge: string;
-  icon: typeof User;
+  label: string; badge: string; heroBadge: string; icon: typeof User;
 }> = {
   admin:      { label: 'Administrator', badge: 'bg-emerald-100 text-emerald-700', heroBadge: 'bg-[#22C55E]/20 text-[#22C55E]',  icon: ShieldCheck },
   hr_manager: { label: 'HR Manager',    badge: 'bg-sky-100 text-sky-700',         heroBadge: 'bg-sky-400/25   text-sky-300',     icon: UserCheck },
@@ -53,14 +50,10 @@ function ProfileSkeleton() {
     <div className="space-y-5 animate-pulse">
       <div className="rounded-2xl bg-gray-200 h-52 w-full" />
       <div className="grid grid-cols-3 gap-4">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="bg-white rounded-2xl border border-gray-100 h-24" />
-        ))}
+        {[0, 1, 2].map((i) => <div key={i} className="bg-white rounded-2xl border border-gray-100 h-24" />)}
       </div>
       <div className="grid grid-cols-3 gap-4">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="bg-white rounded-2xl border border-gray-100 h-28" />
-        ))}
+        {[0, 1, 2].map((i) => <div key={i} className="bg-white rounded-2xl border border-gray-100 h-28" />)}
       </div>
     </div>
   );
@@ -71,28 +64,13 @@ function ProfileSkeleton() {
 // ══════════════════════════════════════════════════════════════════════════════
 
 interface AdminStats {
-  companies?: number;
-  departments: number;
-  employees: number;
-  loading: boolean;
+  companies?: number; departments: number; employees: number; loading: boolean;
 }
 
 const ACTIONS = [
-  {
-    icon: Building2, title: 'Manage Companies',
-    desc: 'Add, edit, and remove company records',
-    link: '/companies', roles: ['admin'],
-  },
-  {
-    icon: LayoutGrid, title: 'Manage Departments',
-    desc: 'Organise teams within your companies',
-    link: '/departments', roles: ['admin', 'hr_manager'],
-  },
-  {
-    icon: Users, title: 'Manage Employees',
-    desc: 'Add, update, and track employee records',
-    link: '/employees', roles: ['admin', 'hr_manager'],
-  },
+  { icon: Building2, title: 'Manage Companies',   desc: 'Add, edit, and remove company records',           link: '/companies',   roles: ['admin'] },
+  { icon: LayoutGrid, title: 'Manage Departments', desc: 'Organise teams within your companies',            link: '/departments', roles: ['admin', 'hr_manager'] },
+  { icon: Users,      title: 'Manage Employees',   desc: 'Add, update, and track employee records',         link: '/employees',   roles: ['admin', 'hr_manager'] },
 ];
 
 function AdminHRProfile() {
@@ -102,7 +80,7 @@ function AdminHRProfile() {
   const meta     = ROLE_META[role];
   const RoleIcon = meta.icon;
 
-  const [stats, setStats] = useState<AdminStats>({ departments: 0, employees: 0, loading: true });
+  const [stats, setStats]   = useState<AdminStats>({ departments: 0, employees: 0, loading: true });
   const [visible, setVisible] = useState(false);
 
   useEffect(() => { const t = setTimeout(() => setVisible(true), 40); return () => clearTimeout(t); }, []);
@@ -114,20 +92,16 @@ function AdminHRProfile() {
         api.get<Department[]>('/departments/'),
         api.get<Employee[]>('/employees/'),
       ]);
-      const companiesCount    = results[0].status === 'fulfilled' ? (results[0].value as { data: Company[] }).data.length    : undefined;
-      const departmentsCount  = results[1].status === 'fulfilled' ? (results[1].value as { data: Department[] }).data.length : 0;
-      const employeesCount    = results[2].status === 'fulfilled' ? (results[2].value as { data: Employee[] }).data.length   : 0;
-      setStats({ companies: companiesCount, departments: departmentsCount, employees: employeesCount, loading: false });
+      setStats({
+        companies:   results[0].status === 'fulfilled' ? (results[0].value as { data: Company[] }).data.length    : undefined,
+        departments: results[1].status === 'fulfilled' ? (results[1].value as { data: Department[] }).data.length : 0,
+        employees:   results[2].status === 'fulfilled' ? (results[2].value as { data: Employee[] }).data.length   : 0,
+        loading: false,
+      });
     })();
   }, [isAdmin]);
 
   const visibleActions = ACTIONS.filter((a) => a.roles.includes(role));
-
-  const statCards = [
-    ...(isAdmin ? [{ icon: Building2, label: 'Companies',   value: stats.companies,   color: 'text-[#2D3B55]', bg: 'bg-[#2D3B55]/10' }] : []),
-    { icon: LayoutGrid, label: 'Departments', value: stats.departments, color: 'text-[#22C55E]', bg: 'bg-[#22C55E]/10' },
-    { icon: Users,      label: 'Employees',   value: stats.employees,   color: 'text-sky-500',   bg: 'bg-sky-500/10' },
-  ];
 
   return (
     <div className={`max-w-4xl mx-auto space-y-5 transition-all duration-500 ${
@@ -137,19 +111,14 @@ function AdminHRProfile() {
       {/* ── Hero card ─────────────────────────────────────────────── */}
       <div className="rounded-2xl overflow-hidden shadow-lg">
         <div className="bg-gradient-to-br from-[#2D3B55] via-[#243148] to-[#1b2538] px-8 py-10 flex flex-col items-center text-center">
-          {/* Avatar */}
           <div className="w-20 h-20 rounded-full bg-white/15 border-2 border-white/25
             flex items-center justify-center mb-4 shadow-xl">
-            <span className="text-white font-bold text-2xl leading-none">
-              {getInitials(user?.email ?? '??')}
-            </span>
+            <span className="text-white font-bold text-2xl leading-none">{getInitials(user?.email ?? '??')}</span>
           </div>
-          {/* Info */}
           <p className="text-white font-bold text-xl">{user?.email}</p>
           <div className="flex items-center gap-2 mt-2">
             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${meta.heroBadge}`}>
-              <RoleIcon className="w-3.5 h-3.5" />
-              {meta.label}
+              <RoleIcon className="w-3.5 h-3.5" />{meta.label}
             </span>
           </div>
           <p className="text-white/50 text-sm mt-3 max-w-xs">
@@ -160,33 +129,20 @@ function AdminHRProfile() {
 
       {/* ── Stats row ──────────────────────────────────────────────── */}
       <div className={`grid gap-4 ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
-        {statCards.map(({ icon: Icon, label, value, color, bg }) => (
-          <div key={label} className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-5 flex items-center gap-4">
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${bg}`}>
-              <Icon className={`w-5 h-5 ${color}`} />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-[#2D3B55] leading-none">
-                {stats.loading
-                  ? <span className="inline-block w-8 h-6 bg-gray-200 rounded animate-pulse" />
-                  : (value ?? '—')}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">{label}</p>
-            </div>
-          </div>
-        ))}
+        {isAdmin && (
+          <InlineStatCard icon={Building2}  label="Companies"   value={stats.loading ? null : (stats.companies ?? 0)} iconBg="bg-[#2D3B55]/10" iconColor="text-[#2D3B55]" />
+        )}
+        <InlineStatCard icon={LayoutGrid} label="Departments" value={stats.loading ? null : stats.departments} iconBg="bg-[#22C55E]/10" iconColor="text-[#22C55E]" />
+        <InlineStatCard icon={Users}      label="Employees"   value={stats.loading ? null : stats.employees}   iconBg="bg-sky-500/10"    iconColor="text-sky-500" />
       </div>
 
       {/* ── Action cards ───────────────────────────────────────────── */}
       <div className={`grid gap-4 ${visibleActions.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
         {visibleActions.map(({ icon: Icon, title, desc, link }) => (
-          <button
-            key={link}
-            onClick={() => navigate(link)}
+          <button key={link} onClick={() => navigate(link)}
             className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 text-left
               hover:border-[#22C55E]/40 hover:shadow-md hover:-translate-y-0.5
-              transition-all duration-200 group"
-          >
+              transition-all duration-200 group">
             <div className="flex items-start justify-between mb-3">
               <div className="w-10 h-10 rounded-xl bg-[#2D3B55]/10 flex items-center justify-center
                 group-hover:bg-[#22C55E]/15 transition-colors">
@@ -209,18 +165,11 @@ function AdminHRProfile() {
 //  EMPLOYEE FULL PROFILE
 // ══════════════════════════════════════════════════════════════════════════════
 
-function EmployeeProfile({
-  employee,
-  companyName,
-  deptName,
-}: {
-  employee: Employee;
-  companyName: string;
-  deptName: string;
+function EmployeeProfile({ employee, companyName, deptName }: {
+  employee: Employee; companyName: string; deptName: string;
 }) {
   const { user } = useAuth();
-  const role     = user?.role ?? 'employee';
-  const meta     = ROLE_META[role];
+  const meta  = ROLE_META[user?.role ?? 'employee'];
 
   const [visible, setVisible] = useState(false);
   useEffect(() => { const t = setTimeout(() => setVisible(true), 40); return () => clearTimeout(t); }, []);
@@ -232,23 +181,17 @@ function EmployeeProfile({
 
       {/* ── Hero card ─────────────────────────────────────────────── */}
       <div className="rounded-2xl overflow-hidden shadow-lg">
-        {/* Green accent bar */}
         <div className="h-1.5 bg-gradient-to-r from-[#22C55E] to-[#16a34a]" />
         <div className="bg-gradient-to-br from-[#2D3B55] via-[#243148] to-[#1b2538] px-8 py-8">
           <div className="flex items-center gap-6">
-            {/* Avatar */}
             <div className="w-20 h-20 rounded-full bg-[#22C55E] flex items-center justify-center
               flex-shrink-0 shadow-lg shadow-[#22C55E]/30">
-              <span className="text-white font-bold text-2xl leading-none">
-                {getInitials(employee.name)}
-              </span>
+              <span className="text-white font-bold text-2xl leading-none">{getInitials(employee.name)}</span>
             </div>
-            {/* Info */}
             <div className="flex-1 min-w-0">
               <h2 className="text-2xl font-bold text-white truncate">{employee.name}</h2>
               <p className="text-white/65 mt-0.5 flex items-center gap-2 text-sm">
-                <Briefcase className="w-3.5 h-3.5 flex-shrink-0" />
-                {employee.title}
+                <Briefcase className="w-3.5 h-3.5 flex-shrink-0" />{employee.title}
               </p>
               <p className="text-white/45 mt-0.5 flex items-center gap-2 text-xs">
                 <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
@@ -268,7 +211,6 @@ function EmployeeProfile({
       {/* ── 4 stat cards ───────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
 
-        {/* Days employed */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-5 text-center">
           <div className="w-10 h-10 rounded-xl bg-[#2D3B55]/10 flex items-center justify-center mx-auto mb-3">
             <Clock className="w-5 h-5 text-[#2D3B55]" />
@@ -280,44 +222,33 @@ function EmployeeProfile({
           <p className="text-xs text-[#22C55E] font-semibold mt-0.5">{formatTenure(employee.days_employed)}</p>
         </div>
 
-        {/* Hire date */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-5 text-center">
           <div className="w-10 h-10 rounded-xl bg-[#22C55E]/10 flex items-center justify-center mx-auto mb-3">
             <Calendar className="w-5 h-5 text-[#22C55E]" />
           </div>
-          <p className="text-sm font-bold text-[#2D3B55] leading-snug">
-            {formatDateShort(employee.hire_date)}
-          </p>
+          <p className="text-sm font-bold text-[#2D3B55] leading-snug">{formatDateShort(employee.hire_date)}</p>
           <p className="text-[10px] text-gray-400 mt-1.5 uppercase tracking-wide">Hire Date</p>
         </div>
 
-        {/* Status */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-5 text-center">
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3 ${
             employee.status === 'active' ? 'bg-emerald-100' : 'bg-gray-100'
           }`}>
-            <User className={`w-5 h-5 ${
-              employee.status === 'active' ? 'text-emerald-600' : 'text-gray-400'
-            }`} />
+            <User className={`w-5 h-5 ${employee.status === 'active' ? 'text-emerald-600' : 'text-gray-400'}`} />
           </div>
           <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${
-            employee.status === 'active'
-              ? 'bg-emerald-100 text-emerald-700'
-              : 'bg-gray-100 text-gray-500'
+            employee.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'
           }`}>
             {employee.status === 'active' ? 'Active' : 'Inactive'}
           </span>
           <p className="text-[10px] text-gray-400 mt-1.5 uppercase tracking-wide">Status</p>
         </div>
 
-        {/* Department */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-5 text-center">
           <div className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center mx-auto mb-3">
             <LayoutGrid className="w-5 h-5 text-sky-500" />
           </div>
-          <p className="text-sm font-bold text-[#2D3B55] leading-snug">
-            {deptName || `#${employee.department_id}`}
-          </p>
+          <p className="text-sm font-bold text-[#2D3B55] leading-snug">{deptName || `#${employee.department_id}`}</p>
           <p className="text-[10px] text-gray-400 mt-1.5 uppercase tracking-wide">Department</p>
         </div>
 
@@ -326,11 +257,8 @@ function EmployeeProfile({
       {/* ── 2-column details ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-        {/* Personal Information */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-5">
-            Personal Information
-          </h3>
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-5">Personal Information</h3>
           <div className="space-y-4">
             {[
               { icon: Mail,   label: 'Email',   value: employee.email },
@@ -350,17 +278,14 @@ function EmployeeProfile({
           </div>
         </div>
 
-        {/* Work Information */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-5">
-            Work Information
-          </h3>
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-5">Work Information</h3>
           <div className="space-y-4">
             {[
-              { icon: Briefcase,  label: 'Job Title',   value: employee.title },
-              { icon: LayoutGrid, label: 'Department',  value: deptName    || `Department #${employee.department_id}` },
-              { icon: Building2,  label: 'Company',     value: companyName || `Company #${employee.company_id}` },
-              { icon: Calendar,   label: 'Hire Date',   value: formatDate(employee.hire_date) },
+              { icon: Briefcase,  label: 'Job Title',  value: employee.title },
+              { icon: LayoutGrid, label: 'Department', value: deptName    || `Department #${employee.department_id}` },
+              { icon: Building2,  label: 'Company',    value: companyName || `Company #${employee.company_id}` },
+              { icon: Calendar,   label: 'Hire Date',  value: formatDate(employee.hire_date) },
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-lg bg-[#2D3B55]/8 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -386,7 +311,7 @@ function EmployeeProfile({
 
 export function ProfilePage() {
   const { isEmployee } = useAuth();
-  const [employee, setEmployee]     = useState<Employee | null>(null);
+  const [employee, setEmployee]       = useState<Employee | null>(null);
   const [companyName, setCompanyName] = useState('');
   const [deptName, setDeptName]       = useState('');
   const [loading, setLoading]         = useState(true);
@@ -397,9 +322,6 @@ export function ProfilePage() {
     try {
       const { data: emp } = await api.get<Employee>('/employees/me/');
       setEmployee(emp);
-
-      // Fetch company and department names in parallel.
-      // Promise.allSettled so a single 403/404 doesn't block the whole page.
       const [compRes, deptRes] = await Promise.allSettled([
         api.get<Company>(`/companies/${emp.company_id}/`),
         api.get<Department>(`/departments/${emp.department_id}/`),
@@ -415,10 +337,8 @@ export function ProfilePage() {
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
-  // Admin / HR Manager — no API call needed for rendering the shell
   if (!isEmployee) return <AdminHRProfile />;
-
-  if (loading) return <ProfileSkeleton />;
+  if (loading)    return <ProfileSkeleton />;
 
   if (notFound || !employee) {
     return (
