@@ -362,6 +362,8 @@ Authorization: Bearer <access_token>
   "department": 2,
   "initial_password": "secret123"
 }
+
+
 ```
 
 ---

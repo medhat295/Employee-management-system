@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Building2, LayoutGrid, Users, UserCircle, LogOut } from 'lucide-react';
+import { Building2, LayoutDashboard, LayoutGrid, Users, UserCircle, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import type { UserRole } from '../../types';
 import logo from '../../assets/eBen Logo + YP Blue and Green.avif';
@@ -12,10 +12,11 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/companies',   icon: Building2,  label: 'Companies',   roles: ['admin', 'hr_manager'] },
-  { to: '/departments', icon: LayoutGrid, label: 'Departments', roles: ['admin', 'hr_manager'] },
-  { to: '/employees',   icon: Users,      label: 'Employees',   roles: ['admin', 'hr_manager'] },
-  { to: '/profile',     icon: UserCircle, label: 'My Profile',  roles: ['admin', 'hr_manager', 'employee'] },
+  { to: '/dashboard',   icon: LayoutDashboard, label: 'Dashboard',   roles: ['admin', 'hr_manager'] },
+  { to: '/companies',   icon: Building2,       label: 'Companies',   roles: ['admin', 'hr_manager'] },
+  { to: '/departments', icon: LayoutGrid,      label: 'Departments', roles: ['admin', 'hr_manager'] },
+  { to: '/employees',   icon: Users,           label: 'Employees',   roles: ['admin', 'hr_manager'] },
+  { to: '/profile',     icon: UserCircle,      label: 'My Profile',  roles: ['admin', 'hr_manager', 'employee'] },
 ];
 
 const ROLE_BADGE: Record<UserRole, string> = {
