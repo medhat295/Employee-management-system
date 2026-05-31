@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import {
@@ -193,10 +193,13 @@ function EmployeeModal({
   const watchedCompany  = Number(watch('company'));
   const watchedPassword = watch('initial_password');
 
-  // Reset department when company changes
+  // Reset department whenever the company changes, but skip the very first render
+  // so that edit-mode pre-fills are not wiped on mount.
+  const mounted = useRef(false);
   useEffect(() => {
-    if (!isEdit) setValue('department', 0);
-  }, [watchedCompany, isEdit, setValue]);
+    if (!mounted.current) { mounted.current = true; return; }
+    setValue('department', 0);
+  }, [watchedCompany, setValue]);
 
   const filteredDepts = departments.filter(
     (d) => d.company_id === watchedCompany,
@@ -324,7 +327,7 @@ function EmployeeModal({
               </div>
             </div>
 
-            {/* Row 4: Status + Company (admin only) */}
+            {/* Row 4: Status + Company */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Status</label>
@@ -333,21 +336,29 @@ function EmployeeModal({
                   <option value="inactive">Inactive</option>
                 </select>
               </div>
-              {isAdmin && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Company <span className="text-red-500">*</span>
-                  </label>
-                  <select className={fieldCls(!!errors.company)}
-                    {...register('company', { required: 'Required', valueAsNumber: true })}>
-                    <option value={0}>Select company…</option>
-                    {companies.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                  <Err msg={errors.company?.message} />
-                </div>
-              )}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Company <span className="text-red-500">*</span>
+                </label>
+                <select
+                  disabled={!isAdmin}
+                  className={[
+                    fieldCls(!!errors.company),
+                    !isAdmin && 'opacity-70 cursor-not-allowed',
+                  ].filter(Boolean).join(' ')}
+                  {...register('company', {
+                    required: 'Required',
+                    valueAsNumber: true,
+                    validate: (v) => v > 0 || 'Select a company',
+                  })}
+                >
+                  <option value={0}>Select company…</option>
+                  {companies.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <Err msg={errors.company?.message} />
+              </div>
             </div>
 
             {/* Row 5: Department */}
@@ -355,14 +366,20 @@ function EmployeeModal({
               <label className="block text-xs font-medium text-gray-600 mb-1">
                 Department <span className="text-red-500">*</span>
               </label>
-              <select className={fieldCls(!!errors.department)}
+              <select
+                disabled={!watchedCompany}
+                className={[
+                  fieldCls(!!errors.department),
+                  !watchedCompany && 'opacity-70 cursor-not-allowed',
+                ].filter(Boolean).join(' ')}
                 {...register('department', {
                   required: 'Required',
                   valueAsNumber: true,
                   validate: (v) => v > 0 || 'Select a department',
-                })}>
+                })}
+              >
                 <option value={0}>
-                  {watchedCompany ? 'Select department…' : 'Select a company first'}
+                  {watchedCompany ? 'Select department…' : 'Select a company first…'}
                 </option>
                 {filteredDepts.map((d) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
@@ -677,17 +694,17 @@ export function EmployeesPage() {
       const [empRes, deptRes, compRes] = await Promise.all([
         api.get<Employee[]>('/employees/'),
         api.get<Department[]>('/departments/'),
-        isAdmin ? api.get<Company[]>('/companies/') : Promise.resolve(null),
+        api.get<Company[]>('/companies/'),
       ]);
       setEmployees(empRes.data);
       setDepartments(deptRes.data);
-      if (compRes) setCompanies(compRes.data);
+      setCompanies(compRes.data);
     } catch {
       // axios interceptor shows error toast
     } finally {
       setLoading(false);
     }
-  }, [isAdmin]);
+  }, []);
 
   const fetchHRManagers = useCallback(async () => {
     if (!isAdmin) return;
