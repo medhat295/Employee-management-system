@@ -209,7 +209,15 @@ function AdminHRProfile() {
 //  EMPLOYEE FULL PROFILE
 // ══════════════════════════════════════════════════════════════════════════════
 
-function EmployeeProfile({ employee }: { employee: Employee }) {
+function EmployeeProfile({
+  employee,
+  companyName,
+  deptName,
+}: {
+  employee: Employee;
+  companyName: string;
+  deptName: string;
+}) {
   const { user } = useAuth();
   const role     = user?.role ?? 'employee';
   const meta     = ROLE_META[role];
@@ -244,10 +252,10 @@ function EmployeeProfile({ employee }: { employee: Employee }) {
               </p>
               <p className="text-white/45 mt-0.5 flex items-center gap-2 text-xs">
                 <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-                Company #{employee.company_id}
+                {companyName || `Company #${employee.company_id}`}
                 <span className="text-white/25">·</span>
                 <LayoutGrid className="w-3.5 h-3.5 flex-shrink-0" />
-                Dept #{employee.department_id}
+                {deptName || `Dept #${employee.department_id}`}
               </p>
               <span className={`inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full text-xs font-semibold ${meta.heroBadge}`}>
                 {meta.label}
@@ -308,7 +316,7 @@ function EmployeeProfile({ employee }: { employee: Employee }) {
             <LayoutGrid className="w-5 h-5 text-sky-500" />
           </div>
           <p className="text-sm font-bold text-[#2D3B55] leading-snug">
-            #{employee.department_id}
+            {deptName || `#${employee.department_id}`}
           </p>
           <p className="text-[10px] text-gray-400 mt-1.5 uppercase tracking-wide">Department</p>
         </div>
@@ -350,8 +358,8 @@ function EmployeeProfile({ employee }: { employee: Employee }) {
           <div className="space-y-4">
             {[
               { icon: Briefcase,  label: 'Job Title',   value: employee.title },
-              { icon: LayoutGrid, label: 'Department',  value: `Department #${employee.department_id}` },
-              { icon: Building2,  label: 'Company',     value: `Company #${employee.company_id}` },
+              { icon: LayoutGrid, label: 'Department',  value: deptName    || `Department #${employee.department_id}` },
+              { icon: Building2,  label: 'Company',     value: companyName || `Company #${employee.company_id}` },
               { icon: Calendar,   label: 'Hire Date',   value: formatDate(employee.hire_date) },
             ].map(({ icon: Icon, label, value }) => (
               <div key={label} className="flex items-start gap-3">
@@ -378,15 +386,26 @@ function EmployeeProfile({ employee }: { employee: Employee }) {
 
 export function ProfilePage() {
   const { isEmployee } = useAuth();
-  const [employee, setEmployee] = useState<Employee | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const [employee, setEmployee]     = useState<Employee | null>(null);
+  const [companyName, setCompanyName] = useState('');
+  const [deptName, setDeptName]       = useState('');
+  const [loading, setLoading]         = useState(true);
+  const [notFound, setNotFound]       = useState(false);
 
   const fetchProfile = useCallback(async () => {
     if (!isEmployee) { setLoading(false); return; }
     try {
-      const { data } = await api.get<Employee>('/employees/me/');
-      setEmployee(data);
+      const { data: emp } = await api.get<Employee>('/employees/me/');
+      setEmployee(emp);
+
+      // Fetch company and department names in parallel.
+      // Promise.allSettled so a single 403/404 doesn't block the whole page.
+      const [compRes, deptRes] = await Promise.allSettled([
+        api.get<Company>(`/companies/${emp.company_id}/`),
+        api.get<Department>(`/departments/${emp.department_id}/`),
+      ]);
+      if (compRes.status === 'fulfilled') setCompanyName(compRes.value.data.name);
+      if (deptRes.status === 'fulfilled') setDeptName(deptRes.value.data.name);
     } catch {
       setNotFound(true);
     } finally {
@@ -418,5 +437,5 @@ export function ProfilePage() {
     );
   }
 
-  return <EmployeeProfile employee={employee} />;
+  return <EmployeeProfile employee={employee} companyName={companyName} deptName={deptName} />;
 }
