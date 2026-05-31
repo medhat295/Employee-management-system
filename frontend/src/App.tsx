@@ -1,11 +1,14 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
 import { CompaniesPage } from './pages/Companies';
 import { DepartmentsPage } from './pages/Departments';
 import { EmployeesPage } from './pages/Employees';
 import { ProfilePage } from './pages/Profile';
+import type { UserRole } from './types';
+import type { ReactNode } from 'react';
 
 function RootRedirect() {
   const { isAuthenticated, isEmployee } = useAuth();
@@ -13,42 +16,56 @@ function RootRedirect() {
   return <Navigate to={isEmployee ? '/profile' : '/companies'} replace />;
 }
 
+function ProtectedLayout({
+  children,
+  allowedRoles,
+}: {
+  children: ReactNode;
+  allowedRoles: UserRole[];
+}) {
+  return (
+    <ProtectedRoute allowedRoles={allowedRoles}>
+      <Layout>{children}</Layout>
+    </ProtectedRoute>
+  );
+}
+
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<RootRedirect />} />
+      <Route path="/"      element={<RootRedirect />} />
       <Route path="/login" element={<Login />} />
 
       <Route
         path="/companies"
         element={
-          <ProtectedRoute allowedRoles={['admin']}>
+          <ProtectedLayout allowedRoles={['admin']}>
             <CompaniesPage />
-          </ProtectedRoute>
+          </ProtectedLayout>
         }
       />
       <Route
         path="/departments"
         element={
-          <ProtectedRoute allowedRoles={['admin', 'hr_manager']}>
+          <ProtectedLayout allowedRoles={['admin', 'hr_manager']}>
             <DepartmentsPage />
-          </ProtectedRoute>
+          </ProtectedLayout>
         }
       />
       <Route
         path="/employees"
         element={
-          <ProtectedRoute allowedRoles={['admin', 'hr_manager']}>
+          <ProtectedLayout allowedRoles={['admin', 'hr_manager']}>
             <EmployeesPage />
-          </ProtectedRoute>
+          </ProtectedLayout>
         }
       />
       <Route
         path="/profile"
         element={
-          <ProtectedRoute allowedRoles={['admin', 'hr_manager', 'employee']}>
+          <ProtectedLayout allowedRoles={['admin', 'hr_manager', 'employee']}>
             <ProfilePage />
-          </ProtectedRoute>
+          </ProtectedLayout>
         }
       />
     </Routes>
