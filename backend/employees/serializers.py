@@ -26,6 +26,12 @@ class EmployeeSerializer(serializers.ModelSerializer):
             'department': {'write_only': True},
         }
 
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            if not self.instance or self.instance.email != value:
+                raise serializers.ValidationError('A user with this email already exists.')
+        return value
+
     def validate(self, attrs):
         company = attrs.get('company')
         department = attrs.get('department')

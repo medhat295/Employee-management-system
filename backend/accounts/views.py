@@ -5,7 +5,9 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
-from .serializers import LoginSerializer, UserSerializer
+from .models import User
+from .permissions import IsAdmin
+from .serializers import LoginSerializer, UserSerializer, HRManagerCreateSerializer
 
 
 class LoginView(APIView):
@@ -55,3 +57,21 @@ class RefreshView(APIView):
             return Response({'access': str(refresh.access_token)}, status=status.HTTP_200_OK)
         except TokenError:
             return Response({'detail': 'Invalid or expired token.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+
+class UserListCreateView(APIView):
+    permission_classes = (IsAuthenticated, IsAdmin)
+
+    def get(self, request):
+        role = request.query_params.get('role')
+        qs = User.objects.select_related('company').all()
+        if role:
+            qs = qs.filter(role=role)
+        return Response(UserSerializer(qs, many=True).data)
+
+    def post(self, request):
+        serializer = HRManagerCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user = serializer.save()
+        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)

@@ -6,6 +6,7 @@ import {
   X, Loader2, LayoutGrid, Users,
 } from 'lucide-react';
 import api from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 import type { Company } from '../types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -220,6 +221,7 @@ function DeleteConfirm({ company, onClose, onSuccess }: DeleteProps) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export function CompaniesPage() {
+  const { isAdmin } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading]     = useState(true);
   const [addOpen, setAddOpen]     = useState(false);
@@ -258,15 +260,17 @@ export function CompaniesPage() {
         <p className="text-sm text-gray-500">
           {loading ? 'Loading…' : `${companies.length} ${companies.length === 1 ? 'company' : 'companies'} registered`}
         </p>
-        <button
-          onClick={() => setAddOpen(true)}
-          className="flex items-center gap-2 h-10 px-5 rounded-xl
-            bg-[#2D3B55] hover:bg-[#22C55E] text-white text-sm font-semibold
-            transition-all duration-200 shadow-sm hover:shadow-[0_4px_14px_rgba(34,197,94,0.3)]"
-        >
-          <Plus className="w-4 h-4" />
-          Add Company
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-2 h-10 px-5 rounded-xl
+              bg-[#2D3B55] hover:bg-[#22C55E] text-white text-sm font-semibold
+              transition-all duration-200 shadow-sm hover:shadow-[0_4px_14px_rgba(34,197,94,0.3)]"
+          >
+            <Plus className="w-4 h-4" />
+            Add Company
+          </button>
+        )}
       </div>
 
       {/* ── Stats row ───────────────────────────────────────────────── */}
@@ -311,7 +315,7 @@ export function CompaniesPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50/80">
-              {['Company Name', 'Departments', 'Employees', 'Created', 'Actions'].map((h, i) => (
+              {['Company Name', 'Departments', 'Employees', 'Created', ...(isAdmin ? ['Actions'] : [])].map((h, i) => (
                 <th
                   key={h}
                   className={[
@@ -329,12 +333,12 @@ export function CompaniesPage() {
               [...Array(5)].map((_, i) => <SkeletonRow key={i} />)
             ) : companies.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-16 text-center">
+                <td colSpan={isAdmin ? 5 : 4} className="py-16 text-center">
                   <Building2 className="w-10 h-10 text-gray-200 mx-auto mb-3" />
                   <p className="text-sm text-gray-400 font-medium">No companies yet</p>
-                  <p className="text-xs text-gray-300 mt-1">
-                    Click "Add Company" to get started
-                  </p>
+                  {isAdmin && (
+                    <p className="text-xs text-gray-300 mt-1">Click "Add Company" to get started</p>
+                  )}
                 </td>
               </tr>
             ) : (
@@ -375,29 +379,31 @@ export function CompaniesPage() {
                     {formatDate(company.created_at)}
                   </td>
 
-                  {/* Actions */}
-                  <td className="px-5 py-4">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        onClick={() => setEditTarget(company)}
-                        title="Edit"
-                        className="p-1.5 rounded-lg text-gray-400
-                          hover:bg-[#2D3B55]/10 hover:text-[#2D3B55]
-                          transition-colors"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(company)}
-                        title="Delete"
-                        className="p-1.5 rounded-lg text-gray-400
-                          hover:bg-red-50 hover:text-red-500
-                          transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
+                  {/* Actions — admin only */}
+                  {isAdmin && (
+                    <td className="px-5 py-4">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => setEditTarget(company)}
+                          title="Edit"
+                          className="p-1.5 rounded-lg text-gray-400
+                            hover:bg-[#2D3B55]/10 hover:text-[#2D3B55]
+                            transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(company)}
+                          title="Delete"
+                          className="p-1.5 rounded-lg text-gray-400
+                            hover:bg-red-50 hover:text-red-500
+                            transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))
             )}

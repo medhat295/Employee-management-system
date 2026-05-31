@@ -12,7 +12,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/companies',   icon: Building2,  label: 'Companies',   roles: ['admin'] },
+  { to: '/companies',   icon: Building2,  label: 'Companies',   roles: ['admin', 'hr_manager'] },
   { to: '/departments', icon: LayoutGrid, label: 'Departments', roles: ['admin', 'hr_manager'] },
   { to: '/employees',   icon: Users,      label: 'Employees',   roles: ['admin', 'hr_manager'] },
   { to: '/profile',     icon: UserCircle, label: 'My Profile',  roles: ['admin', 'hr_manager', 'employee'] },
@@ -25,7 +25,7 @@ const ROLE_BADGE: Record<UserRole, string> = {
 };
 
 const ROLE_LABEL: Record<UserRole, string> = {
-  admin:      'Admin',
+  admin:      'System Admin',
   hr_manager: 'HR Manager',
   employee:   'Employee',
 };

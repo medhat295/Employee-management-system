@@ -4,11 +4,11 @@ import toast from 'react-hot-toast';
 import {
   Plus, Pencil, Trash2, Users, X, Loader2, Eye,
   Mail, Phone, MapPin, Briefcase, Calendar,
-  Building2, LayoutGrid, Clock, UserCheck,
+  Building2, LayoutGrid, Clock, UserCheck, ShieldCheck,
 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import type { Company, Department, Employee } from '../types';
+import type { Company, Department, Employee, User } from '../types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -40,12 +40,13 @@ function avatarColor(name: string) {
 
 // ── Skeleton ─────────────────────────────────────────────────────────────────
 
-function SkeletonRow() {
+function SkeletonRow({ cols = 8 }: { cols?: number }) {
+  const widths = ['w-44', 'w-40', 'w-28', 'w-32', 'w-24', 'w-20', 'w-16', 'w-16'];
   return (
     <tr className="border-b border-gray-100">
-      {['w-44', 'w-40', 'w-28', 'w-32', 'w-24', 'w-20', 'w-16', 'w-16'].map((w, i) => (
+      {Array.from({ length: cols }).map((_, i) => (
         <td key={i} className="px-4 py-4">
-          <div className={`h-4 bg-gray-100 rounded-lg animate-pulse ${w}`} />
+          <div className={`h-4 bg-gray-100 rounded-lg animate-pulse ${widths[i] ?? 'w-20'}`} />
         </td>
       ))}
     </tr>
@@ -152,7 +153,6 @@ interface BaseForm {
   company: number; department: number;
 }
 interface AddForm extends BaseForm { initial_password: string; confirm_password: string }
-type EditForm = BaseForm;
 
 interface EmpModalProps {
   employee?: Employee;
@@ -484,11 +484,176 @@ function DeleteConfirm({ employee, onClose, onSuccess }: DeleteProps) {
   );
 }
 
+// ── HR Manager modal ──────────────────────────────────────────────────────────
+
+interface HRManagerForm {
+  email: string;
+  password: string;
+  confirm_password: string;
+  company: number;
+}
+
+interface HRManagerModalProps {
+  companies: Company[];
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function HRManagerModal({ companies, onClose, onSuccess }: HRManagerModalProps) {
+  const {
+    register, handleSubmit, watch,
+    formState: { errors, isSubmitting },
+  } = useForm<HRManagerForm>({
+    defaultValues: { email: '', password: '', confirm_password: '', company: 0 },
+  });
+
+  const watchedPassword = watch('password');
+
+  const onSubmit = async (data: HRManagerForm) => {
+    try {
+      await api.post('/accounts/users/', {
+        email: data.email,
+        password: data.password,
+        company: data.company,
+      });
+      toast.success('HR Manager created successfully');
+      onSuccess();
+    } catch {
+      // axios interceptor shows error toast
+    }
+  };
+
+  const fieldCls = (hasError: boolean) =>
+    [
+      'w-full h-10 px-3 rounded-xl border text-sm text-gray-900',
+      'placeholder:text-gray-400 transition-colors',
+      'focus:outline-none focus:ring-2 focus:ring-[#22C55E]/20 focus:border-[#22C55E]',
+      hasError
+        ? 'border-red-400 bg-red-50/50'
+        : 'border-gray-200 bg-gray-50 hover:border-gray-300',
+    ].join(' ');
+
+  const Err = ({ msg }: { msg?: string }) =>
+    msg ? <p className="mt-1 text-xs text-red-500">{msg}</p> : null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center">
+              <ShieldCheck className="w-4 h-4 text-sky-600" />
+            </div>
+            <h2 className="text-base font-semibold text-[#2D3B55]">Add HR Manager</h2>
+          </div>
+          <button onClick={onClose}
+            className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <div className="px-6 py-5 space-y-4">
+
+            {/* Email */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Email <span className="text-red-500">*</span>
+              </label>
+              <input type="email" placeholder="hr@company.com"
+                className={fieldCls(!!errors.email)}
+                {...register('email', {
+                  required: 'Required',
+                  pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Invalid email' },
+                })} />
+              <Err msg={errors.email?.message} />
+            </div>
+
+            {/* Company */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Company <span className="text-red-500">*</span>
+              </label>
+              <select className={fieldCls(!!errors.company)}
+                {...register('company', {
+                  required: 'Required',
+                  valueAsNumber: true,
+                  validate: (v) => v > 0 || 'Select a company',
+                })}>
+                <option value={0}>Select company…</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <Err msg={errors.company?.message} />
+            </div>
+
+            {/* Password */}
+            <div className="grid grid-cols-2 gap-4 pt-1 border-t border-gray-100">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Password <span className="text-red-500">*</span>
+                </label>
+                <input type="password" placeholder="Min. 8 characters"
+                  className={fieldCls(!!errors.password)}
+                  {...register('password', {
+                    required: 'Required',
+                    minLength: { value: 8, message: 'Min 8 characters' },
+                  })} />
+                <Err msg={errors.password?.message} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Confirm Password <span className="text-red-500">*</span>
+                </label>
+                <input type="password" placeholder="Repeat password"
+                  className={fieldCls(!!errors.confirm_password)}
+                  {...register('confirm_password', {
+                    required: 'Required',
+                    validate: (v) => v === watchedPassword || 'Passwords do not match',
+                  })} />
+                <Err msg={errors.confirm_password?.message} />
+              </div>
+            </div>
+
+          </div>
+
+          {/* Footer */}
+          <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
+            <button type="button" onClick={onClose}
+              className="flex-1 h-11 rounded-xl border border-gray-200 text-sm font-medium
+                text-gray-600 hover:bg-gray-50 transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={isSubmitting}
+              className="flex-1 h-11 rounded-xl bg-[#2D3B55] hover:bg-[#22C55E] text-white
+                text-sm font-semibold transition-all duration-200
+                flex items-center justify-center gap-2
+                disabled:opacity-60 disabled:cursor-not-allowed">
+              {isSubmitting
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</>
+                : 'Add HR Manager'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
+
+type TabId = 'employees' | 'hr_managers';
 
 export function EmployeesPage() {
   const { isAdmin, user } = useAuth();
 
+  // Tab
+  const [activeTab, setActiveTab] = useState<TabId>('employees');
+
+  // Employees state
   const [employees, setEmployees]       = useState<Employee[]>([]);
   const [companies, setCompanies]       = useState<Company[]>([]);
   const [departments, setDepartments]   = useState<Department[]>([]);
@@ -497,6 +662,11 @@ export function EmployeesPage() {
   const [viewTarget, setViewTarget]     = useState<Employee | null>(null);
   const [editTarget, setEditTarget]     = useState<Employee | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
+
+  // HR Managers state
+  const [hrManagers, setHRManagers]   = useState<User[]>([]);
+  const [hrLoading, setHRLoading]     = useState(false);
+  const [addHROpen, setAddHROpen]     = useState(false);
 
   const deptMap    = new Map(departments.map((d) => [d.id, d.name]));
   const companyMap = new Map(companies.map((c) => [c.id, c.name]));
@@ -519,7 +689,24 @@ export function EmployeesPage() {
     }
   }, [isAdmin]);
 
+  const fetchHRManagers = useCallback(async () => {
+    if (!isAdmin) return;
+    setHRLoading(true);
+    try {
+      const res = await api.get<User[]>('/accounts/users/?role=hr_manager');
+      setHRManagers(res.data);
+    } catch {
+      // axios interceptor shows error toast
+    } finally {
+      setHRLoading(false);
+    }
+  }, [isAdmin]);
+
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (activeTab === 'hr_managers') fetchHRManagers();
+  }, [activeTab, fetchHRManagers]);
 
   const handleSuccess = () => {
     setAddOpen(false);
@@ -528,183 +715,317 @@ export function EmployeesPage() {
     fetchData();
   };
 
+  const handleHRSuccess = () => {
+    setAddHROpen(false);
+    fetchHRManagers();
+  };
+
   const active   = employees.filter((e) => e.status === 'active').length;
   const inactive = employees.filter((e) => e.status === 'inactive').length;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
 
-      {/* ── Header ───────────────────────────────────────────────────── */}
+      {/* ── Tabs ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">
-          {loading ? 'Loading…' : `${employees.length} employee${employees.length !== 1 ? 's' : ''}`}
-        </p>
-        <button
-          onClick={() => setAddOpen(true)}
-          className="flex items-center gap-2 h-10 px-5 rounded-xl
-            bg-[#2D3B55] hover:bg-[#22C55E] text-white text-sm font-semibold
-            transition-all duration-200 shadow-sm hover:shadow-[0_4px_14px_rgba(34,197,94,0.3)]"
-        >
-          <Plus className="w-4 h-4" /> Add Employee
-        </button>
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
+          {([
+            { id: 'employees'   as TabId, label: 'Employees',   icon: Users },
+            ...(isAdmin ? [{ id: 'hr_managers' as TabId, label: 'HR Managers', icon: ShieldCheck }] : []),
+          ]).map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={[
+                'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150',
+                activeTab === id
+                  ? 'bg-white text-[#2D3B55] shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700',
+              ].join(' ')}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Action button */}
+        {activeTab === 'employees' ? (
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-2 h-10 px-5 rounded-xl
+              bg-[#2D3B55] hover:bg-[#22C55E] text-white text-sm font-semibold
+              transition-all duration-200 shadow-sm hover:shadow-[0_4px_14px_rgba(34,197,94,0.3)]"
+          >
+            <Plus className="w-4 h-4" /> Add Employee
+          </button>
+        ) : isAdmin ? (
+          <button
+            onClick={() => setAddHROpen(true)}
+            className="flex items-center gap-2 h-10 px-5 rounded-xl
+              bg-[#2D3B55] hover:bg-[#22C55E] text-white text-sm font-semibold
+              transition-all duration-200 shadow-sm hover:shadow-[0_4px_14px_rgba(34,197,94,0.3)]"
+          >
+            <Plus className="w-4 h-4" /> Add HR Manager
+          </button>
+        ) : null}
       </div>
 
-      {/* ── Stats ────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          {
-            icon: Users,     label: 'Total Employees',
-            value: loading ? null : employees.length,
-            iconBg: 'bg-[#2D3B55]/10', iconColor: 'text-[#2D3B55]',
-          },
-          {
-            icon: UserCheck, label: 'Active',
-            value: loading ? null : active,
-            iconBg: 'bg-[#22C55E]/10', iconColor: 'text-[#22C55E]',
-          },
-          {
-            icon: Briefcase, label: 'Inactive',
-            value: loading ? null : inactive,
-            iconBg: 'bg-gray-200/60', iconColor: 'text-gray-400',
-          },
-        ].map(({ icon: Icon, label, value, iconBg, iconColor }) => (
-          <div key={label}
-            className="bg-white rounded-2xl border border-gray-200 px-5 py-4
-              flex items-center gap-4 shadow-sm">
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
-              <Icon className={`w-5 h-5 ${iconColor}`} />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-[#2D3B55] leading-none">
-                {value === null
-                  ? <span className="inline-block w-8 h-6 bg-gray-200 rounded animate-pulse" />
-                  : value}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">{label}</p>
-            </div>
+      {/* ── Employees tab ─────────────────────────────────────────────── */}
+      {activeTab === 'employees' && (
+        <>
+          {/* Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              {
+                icon: Users,     label: 'Total Employees',
+                value: loading ? null : employees.length,
+                iconBg: 'bg-[#2D3B55]/10', iconColor: 'text-[#2D3B55]',
+              },
+              {
+                icon: UserCheck, label: 'Active',
+                value: loading ? null : active,
+                iconBg: 'bg-[#22C55E]/10', iconColor: 'text-[#22C55E]',
+              },
+              {
+                icon: Briefcase, label: 'Inactive',
+                value: loading ? null : inactive,
+                iconBg: 'bg-gray-200/60', iconColor: 'text-gray-400',
+              },
+            ].map(({ icon: Icon, label, value, iconBg, iconColor }) => (
+              <div key={label}
+                className="bg-white rounded-2xl border border-gray-200 px-5 py-4
+                  flex items-center gap-4 shadow-sm">
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+                  <Icon className={`w-5 h-5 ${iconColor}`} />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-[#2D3B55] leading-none">
+                    {value === null
+                      ? <span className="inline-block w-8 h-6 bg-gray-200 rounded animate-pulse" />
+                      : value}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">{label}</p>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* ── Table ────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50/80">
-                {[
-                  ['Employee', 'text-left'],
-                  ['Email', 'text-left'],
-                  ['Mobile', 'text-left'],
-                  ['Title', 'text-left'],
-                  ['Department', 'text-left'],
-                  ['Status', 'text-left'],
-                  ['Tenure', 'text-left'],
-                  ['Actions', 'text-right'],
-                ].map(([h, align]) => (
-                  <th key={h}
-                    className={`px-4 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide ${align}`}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                [...Array(6)].map((_, i) => <SkeletonRow key={i} />)
-              ) : employees.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-16 text-center">
-                    <Users className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-                    <p className="text-sm text-gray-400 font-medium">No employees yet</p>
-                    <p className="text-xs text-gray-300 mt-1">Click "Add Employee" to get started</p>
-                  </td>
-                </tr>
-              ) : (
-                employees.map((emp) => {
-                  const color = avatarColor(emp.name);
-                  const deptName = deptMap.get(emp.department_id) ?? '—';
-                  return (
-                    <tr key={emp.id}
-                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60 transition-colors">
-
-                      {/* Employee */}
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`w-8 h-8 rounded-full ${color} flex items-center justify-center flex-shrink-0`}>
-                            <span className="text-white text-xs font-bold">{getInitials(emp.name)}</span>
-                          </div>
-                          <span className="font-medium text-gray-900 whitespace-nowrap">{emp.name}</span>
-                        </div>
-                      </td>
-
-                      {/* Email */}
-                      <td className="px-4 py-3.5 text-gray-500 max-w-[180px] truncate">
-                        {emp.email}
-                      </td>
-
-                      {/* Mobile */}
-                      <td className="px-4 py-3.5 text-gray-500 whitespace-nowrap">{emp.mobile}</td>
-
-                      {/* Title */}
-                      <td className="px-4 py-3.5 text-gray-700 whitespace-nowrap">{emp.title}</td>
-
-                      {/* Department */}
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-1.5">
-                          <LayoutGrid className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                          <span className="text-gray-600 whitespace-nowrap">{deptName}</span>
-                        </div>
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-4 py-3.5">
-                        <span className={[
-                          'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold',
-                          emp.status === 'active'
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-gray-100 text-gray-500',
-                        ].join(' ')}>
-                          {emp.status === 'active' ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-
-                      {/* Tenure */}
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-1 text-gray-500">
-                          <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                          {formatDaysEmployed(emp.days_employed)}
-                        </div>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => setViewTarget(emp)} title="View"
-                            className="p-1.5 rounded-lg text-gray-400
-                              hover:bg-sky-50 hover:text-sky-600 transition-colors">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => setEditTarget(emp)} title="Edit"
-                            className="p-1.5 rounded-lg text-gray-400
-                              hover:bg-[#2D3B55]/10 hover:text-[#2D3B55] transition-colors">
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => setDeleteTarget(emp)} title="Delete"
-                            className="p-1.5 rounded-lg text-gray-400
-                              hover:bg-red-50 hover:text-red-500 transition-colors">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+          {/* Table */}
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50/80">
+                    {[
+                      ['Employee', 'text-left'],
+                      ['Email', 'text-left'],
+                      ['Mobile', 'text-left'],
+                      ['Title', 'text-left'],
+                      ['Department', 'text-left'],
+                      ['Status', 'text-left'],
+                      ['Tenure', 'text-left'],
+                      ['Actions', 'text-right'],
+                    ].map(([h, align]) => (
+                      <th key={h}
+                        className={`px-4 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide ${align}`}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    [...Array(6)].map((_, i) => <SkeletonRow key={i} />)
+                  ) : employees.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-16 text-center">
+                        <Users className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                        <p className="text-sm text-gray-400 font-medium">No employees yet</p>
+                        <p className="text-xs text-gray-300 mt-1">Click "Add Employee" to get started</p>
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  ) : (
+                    employees.map((emp) => {
+                      const color = avatarColor(emp.name);
+                      const deptName = deptMap.get(emp.department_id) ?? '—';
+                      return (
+                        <tr key={emp.id}
+                          className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60 transition-colors">
+
+                          {/* Employee */}
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-8 h-8 rounded-full ${color} flex items-center justify-center flex-shrink-0`}>
+                                <span className="text-white text-xs font-bold">{getInitials(emp.name)}</span>
+                              </div>
+                              <span className="font-medium text-gray-900 whitespace-nowrap">{emp.name}</span>
+                            </div>
+                          </td>
+
+                          {/* Email */}
+                          <td className="px-4 py-3.5 text-gray-500 max-w-[180px] truncate">
+                            {emp.email}
+                          </td>
+
+                          {/* Mobile */}
+                          <td className="px-4 py-3.5 text-gray-500 whitespace-nowrap">{emp.mobile}</td>
+
+                          {/* Title */}
+                          <td className="px-4 py-3.5 text-gray-700 whitespace-nowrap">{emp.title}</td>
+
+                          {/* Department */}
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-1.5">
+                              <LayoutGrid className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                              <span className="text-gray-600 whitespace-nowrap">{deptName}</span>
+                            </div>
+                          </td>
+
+                          {/* Status */}
+                          <td className="px-4 py-3.5">
+                            <span className={[
+                              'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold',
+                              emp.status === 'active'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-gray-100 text-gray-500',
+                            ].join(' ')}>
+                              {emp.status === 'active' ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+
+                          {/* Tenure */}
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-1 text-gray-500">
+                              <Clock className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                              {formatDaysEmployed(emp.days_employed)}
+                            </div>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => setViewTarget(emp)} title="View"
+                                className="p-1.5 rounded-lg text-gray-400
+                                  hover:bg-sky-50 hover:text-sky-600 transition-colors">
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => setEditTarget(emp)} title="Edit"
+                                className="p-1.5 rounded-lg text-gray-400
+                                  hover:bg-[#2D3B55]/10 hover:text-[#2D3B55] transition-colors">
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => setDeleteTarget(emp)} title="Delete"
+                                className="p-1.5 rounded-lg text-gray-400
+                                  hover:bg-red-50 hover:text-red-500 transition-colors">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── HR Managers tab ───────────────────────────────────────────── */}
+      {activeTab === 'hr_managers' && isAdmin && (
+        <>
+          {/* Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white rounded-2xl border border-gray-200 px-5 py-4
+              flex items-center gap-4 shadow-sm">
+              <div className="w-11 h-11 rounded-xl bg-sky-500/10 flex items-center justify-center flex-shrink-0">
+                <ShieldCheck className="w-5 h-5 text-sky-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-[#2D3B55] leading-none">
+                  {hrLoading
+                    ? <span className="inline-block w-8 h-6 bg-gray-200 rounded animate-pulse" />
+                    : hrManagers.length}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Total HR Managers</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50/80">
+                    {[
+                      ['Email', 'text-left'],
+                      ['Company', 'text-left'],
+                      ['Role', 'text-left'],
+                    ].map(([h, align]) => (
+                      <th key={h}
+                        className={`px-4 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide ${align}`}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {hrLoading ? (
+                    [...Array(4)].map((_, i) => <SkeletonRow key={i} cols={3} />)
+                  ) : hrManagers.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="py-16 text-center">
+                        <ShieldCheck className="w-10 h-10 text-gray-200 mx-auto mb-3" />
+                        <p className="text-sm text-gray-400 font-medium">No HR managers yet</p>
+                        <p className="text-xs text-gray-300 mt-1">Click "Add HR Manager" to get started</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    hrManagers.map((mgr) => (
+                      <tr key={mgr.id}
+                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60 transition-colors">
+
+                        {/* Email */}
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center flex-shrink-0`}>
+                              <span className="text-white text-xs font-bold">
+                                {mgr.email[0].toUpperCase()}
+                              </span>
+                            </div>
+                            <span className="text-gray-700">{mgr.email}</span>
+                          </div>
+                        </td>
+
+                        {/* Company */}
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-1.5">
+                            <Building2 className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                            <span className="text-gray-600">
+                              {mgr.company_id ? companyMap.get(mgr.company_id) ?? '—' : '—'}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Role */}
+                        <td className="px-4 py-3.5">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold
+                            bg-sky-100 text-sky-700">
+                            HR Manager
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── Modals ───────────────────────────────────────────────────── */}
       {viewTarget && (
@@ -741,6 +1062,13 @@ export function EmployeesPage() {
           employee={deleteTarget}
           onClose={() => setDeleteTarget(null)}
           onSuccess={handleSuccess}
+        />
+      )}
+      {addHROpen && (
+        <HRManagerModal
+          companies={companies}
+          onClose={() => setAddHROpen(false)}
+          onSuccess={handleHRSuccess}
         />
       )}
 
