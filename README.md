@@ -11,7 +11,7 @@ A full-stack web application for managing companies, departments, employees, and
 | **Backend Framework** | Django | 5.0 |
 | **REST API** | Django REST Framework | 3.x |
 | **Authentication** | SimpleJWT (with token blacklist) | 5.x |
-| **Database** | PostgreSQL | 14+ |
+| **Database** | PostgreSQL | 18 |
 | **DB Adapter** | psycopg2-binary | 2.9 |
 | **CORS** | django-cors-headers | — |
 | **Config** | python-decouple | — |
@@ -64,6 +64,8 @@ User ──── Employee          (one-to-one: each employee has exactly one u
 - **HR Manager Creation** — admins can create HR manager accounts linked to a specific company
 - **Employee Status Sync** — toggling an employee inactive automatically disables their login
 - **Computed Fields** — `days_employed` calculated server-side from hire date; `total_departments` and `total_employees` aggregated on Company
+- **Summary Dashboard** — animated stat cards (companies, departments, employees), recent employees table, department overview; default landing page for Admin and HR Manager
+- **Employee Report** — printable/exportable table of active employees with name/email/mobile/title/hire date/days employed/company/department; filter by company, department, or name search
 - **Responsive UI** — sidebar navigation, stat cards, data tables, modal forms with validation
 - **Role Badge** — sidebar displays color-coded role label (System Admin / HR Manager / Employee)
 
@@ -82,6 +84,8 @@ User ──── Employee          (one-to-one: each employee has exactly one u
 | Create HR Manager accounts | ✅ | ❌ | ❌ |
 | View HR Manager list | ✅ | ❌ | ❌ |
 | View own profile (`/profile`) | ✅ | ✅ | ✅ |
+| View dashboard (`/dashboard`) | ✅ | ✅ | ❌ |
+| View employee report (`/report`) | ✅ | ✅ | ❌ |
 
 ---
 
@@ -139,9 +143,11 @@ Employee-management-system/
 │   │   │   └── AuthContext.tsx       # JWT state, login/logout, role helpers
 │   │   ├── pages/
 │   │   │   ├── Login.tsx
+│   │   │   ├── Dashboard.tsx         # Summary stats, recent employees, dept overview
 │   │   │   ├── Companies.tsx
 │   │   │   ├── Departments.tsx
 │   │   │   ├── Employees.tsx         # Employees + HR Managers tabs
+│   │   │   ├── EmployeeReport.tsx    # Printable active-employee report
 │   │   │   └── Profile.tsx
 │   │   ├── types/
 │   │   │   └── index.ts              # User, Company, Department, Employee interfaces
@@ -151,7 +157,14 @@ Employee-management-system/
 │   ├── vite.config.ts
 │   └── .env
 │
-├── requirements.txt
+├── backend/
+│   ├── Dockerfile
+│   ├── requirements.txt            # Django-only dependencies
+│   └── .env.example
+├── frontend/
+│   └── Dockerfile
+├── docker-compose.yml
+├── requirements.txt                # Root (global/unrelated — not used by Docker)
 └── README.md
 ```
 
@@ -162,8 +175,8 @@ Employee-management-system/
 ### Prerequisites
 
 - Python 3.11+
-- Node.js 18+ and npm
-- PostgreSQL 14+
+- Node.js 22+ and npm (Vite 8 requires Node 22.12+)
+- PostgreSQL 18
 
 ---
 
@@ -261,6 +274,71 @@ npm run dev
 ```
 
 The app will be available at `http://localhost:5173/`.
+
+---
+
+## Docker Setup
+
+> Boot the entire stack — database, backend API, and frontend — with a single command.
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) 24+
+- [Docker Compose](https://docs.docker.com/compose/) v2+
+
+### Quick Start
+
+**1. Create the backend environment file**
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+The defaults in `.env.example` work out of the box for local Docker. Optionally set a strong `SECRET_KEY` before running.
+
+> **Important:** Any `SECRET_KEY` value containing special characters like `$` must be wrapped in single quotes in `.env` to prevent Docker Compose from misinterpreting them as variable references:
+> ```env
+> SECRET_KEY='your$ecret!key'
+> ```
+
+**2. Boot everything**
+
+```bash
+docker compose --env-file backend/.env up -d --build
+```
+
+| Service | URL | Container |
+|---|---|---|
+| **Frontend** | http://localhost:5173 | `ems-frontend` |
+| **Backend API** | http://localhost:8000/api | `ems-backend` |
+| **PostgreSQL** | localhost:5432 | `ems-db` |
+
+Migrations run automatically on backend startup. The backend waits for the database to pass its health check before starting.
+
+**3. Create a superuser (first run only)**
+
+```bash
+docker exec -it ems-backend python manage.py createsuperuser
+```
+
+**4. View logs**
+
+```bash
+docker compose --env-file backend/.env logs -f backend
+docker compose --env-file backend/.env logs -f frontend
+```
+
+### Stop & Clean Up
+
+```bash
+docker compose --env-file backend/.env down        # stop containers, keep database
+docker compose --env-file backend/.env down -v     # stop containers + wipe database volume
+```
+
+> **Note:** When you wipe the volume (`-v`) you must re-run `createsuperuser` on the next boot. If you update npm dependencies, also remove the frontend node_modules volume:
+> ```bash
+> docker volume rm employee-management-system_frontend_node_modules
+> ```
 
 ---
 

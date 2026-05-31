@@ -1,0 +1,62 @@
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  db:
+    image: postgres:18
+    container_name: ems-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-employee_management}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── Django backend ──────────────────────────────────────────────────────────
+  backend:
+    build: ./backend
+    container_name: ems-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: ./backend/.env
+    environment:
+      # Override DB connection so Django talks to the "db" container
+      DB_HOST: db
+      DB_PORT: "5432"
+      # Allow the Docker internal hostname alongside the usual dev hosts
+      ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+
+  # ── Vite frontend ───────────────────────────────────────────────────────────
+  frontend:
+    build: ./frontend
+    container_name: ems-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      # Browser connects to the backend on the host's exposed port
+      VITE_API_BASE_URL: http://localhost:8000/api
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      # Named volume keeps Linux node_modules isolated from the Windows host folder
+      - frontend_node_modules:/app/node_modules
+
+volumes:
+  postgres_data:
+  frontend_node_modules:
