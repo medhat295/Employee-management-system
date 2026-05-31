@@ -79,6 +79,9 @@ class EmployeeViewSet(
         if new_status is not None:
             updated.user.is_active = (new_status == Employee.Status.ACTIVE)
             user_fields_to_update.append('is_active')
+            if new_status == Employee.Status.ACTIVE:
+                updated.onboarding_status = Employee.OnboardingStatus.HIRED
+                updated.save(update_fields=['onboarding_status'])
         if user_fields_to_update:
             updated.user.save(update_fields=user_fields_to_update)
 

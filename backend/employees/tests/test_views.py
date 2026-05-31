@@ -236,12 +236,17 @@ class EmployeePartialUpdateTests(EmployeeAPITestCase):
     def test_setting_status_active_activates_user(self):
         self.emp_user_a.is_active = False
         self.emp_user_a.save()
+        self.emp_a.status = Employee.Status.INACTIVE
+        self.emp_a.onboarding_status = Employee.OnboardingStatus.INTERVIEW_SCHEDULED
+        self.emp_a.save()
         self.client.force_authenticate(self.hr_a)
         url = reverse("employee-detail", args=[self.emp_a.pk])
         response = self.client.patch(url, {"status": "active"})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.emp_a.refresh_from_db()
         self.emp_user_a.refresh_from_db()
         self.assertTrue(self.emp_user_a.is_active)
+        self.assertEqual(self.emp_a.onboarding_status, Employee.OnboardingStatus.HIRED)
 
     def test_hr_cannot_update_employee_in_other_company(self):
         self.client.force_authenticate(self.hr_a)
