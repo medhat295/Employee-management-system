@@ -15,6 +15,7 @@ import { EmployeeFormModal } from '../components/employees/EmployeeFormModal';
 import { HRManagerFormModal } from '../components/employees/HRManagerFormModal';
 import { TransitionModal } from '../components/employees/TransitionModal';
 import { ViewEmployeeModal } from '../components/employees/ViewEmployeeModal';
+import { ViewHRManagerModal } from '../components/employees/ViewHRManagerModal';
 import { ONBOARDING_BADGE } from '../components/employees/onboardingConfig';
 
 type TabId = 'employees' | 'hr_managers';
@@ -35,6 +36,9 @@ export function EmployeesPage() {
   const [hrManagers, setHRManagers]             = useState<User[]>([]);
   const [hrLoading, setHRLoading]               = useState(false);
   const [addHROpen, setAddHROpen]               = useState(false);
+  const [viewHRTarget, setViewHRTarget]         = useState<User | null>(null);
+  const [editHRTarget, setEditHRTarget]         = useState<User | null>(null);
+  const [deleteHRTarget, setDeleteHRTarget]     = useState<User | null>(null);
 
   const deptMap    = new Map(departments.map((d) => [d.id, d.name]));
   const companyMap = new Map(companies.map((c) => [c.id, c.name]));
@@ -66,7 +70,12 @@ export function EmployeesPage() {
   useEffect(() => { if (activeTab === 'hr_managers') fetchHRManagers(); }, [activeTab, fetchHRManagers]);
 
   const handleSuccess = () => { setAddOpen(false); setEditTarget(null); setDeleteTarget(null); fetchData(); };
-  const handleHRSuccess = () => { setAddHROpen(false); fetchHRManagers(); };
+  const handleHRSuccess = () => {
+    setAddHROpen(false);
+    setEditHRTarget(null);
+    setDeleteHRTarget(null);
+    fetchHRManagers();
+  };
   const handleTransitioned = (updated: Employee) =>
     setEmployees((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
 
@@ -198,16 +207,16 @@ export function EmployeesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/80">
-                    {[['Email','text-left'],['Company','text-left'],['Role','text-left']].map(([h, align]) => (
+                    {[['Email','text-left'],['Company','text-left'],['Role','text-left'],['Actions','text-right']].map(([h, align]) => (
                       <th key={h} className={`px-4 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide ${align}`}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {hrLoading ? (
-                    [...Array(4)].map((_, i) => <TableSkeletonRow key={i} cols={3} />)
+                    [...Array(4)].map((_, i) => <TableSkeletonRow key={i} cols={4} />)
                   ) : hrManagers.length === 0 ? (
-                    <EmptyTableState icon={ShieldCheck} message="No HR managers yet" hint='Click "Add HR Manager" to get started' colSpan={3} />
+                    <EmptyTableState icon={ShieldCheck} message="No HR managers yet" hint='Click "Add HR Manager" to get started' colSpan={4} />
                   ) : hrManagers.map((mgr) => (
                     <tr key={mgr.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60 transition-colors">
                       <td className="px-4 py-3.5">
@@ -226,6 +235,13 @@ export function EmployeesPage() {
                       </td>
                       <td className="px-4 py-3.5">
                         <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-100 text-sky-700">HR Manager</span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <ActionButtons
+                          onView={() => setViewHRTarget(mgr)}
+                          onEdit={() => setEditHRTarget(mgr)}
+                          onDelete={() => setDeleteHRTarget(mgr)}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -260,6 +276,31 @@ export function EmployeesPage() {
       )}
       {addHROpen && (
         <HRManagerFormModal companies={companies} onClose={() => setAddHROpen(false)} onSuccess={handleHRSuccess} />
+      )}
+      {viewHRTarget && (
+        <ViewHRManagerModal manager={viewHRTarget} companyMap={companyMap} onClose={() => setViewHRTarget(null)} />
+      )}
+      {editHRTarget && (
+        <HRManagerFormModal
+          manager={editHRTarget}
+          companies={companies}
+          onClose={() => setEditHRTarget(null)}
+          onSuccess={handleHRSuccess}
+        />
+      )}
+      {deleteHRTarget && (
+        <DeleteConfirmModal
+          title="Remove HR Manager"
+          description={<>Are you sure you want to remove <strong className="text-gray-900">"{deleteHRTarget.email}"</strong>? This will permanently delete the account.</>}
+          confirmLabel="Remove"
+          loadingLabel="Removing…"
+          onClose={() => setDeleteHRTarget(null)}
+          onConfirm={async () => {
+            await api.delete(`/accounts/users/${deleteHRTarget.id}/`);
+            toast.success(`"${deleteHRTarget.email}" removed`);
+            handleHRSuccess();
+          }}
+        />
       )}
       {transitionTarget && (
         <TransitionModal employee={transitionTarget} onClose={() => setTransitionTarget(null)} onTransitioned={handleTransitioned} />

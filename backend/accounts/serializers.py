@@ -68,3 +68,29 @@ class HRManagerCreateSerializer(serializers.ModelSerializer):
             role=User.Role.HR_MANAGER,
             company=validated_data['company'],
         )
+
+
+class HRManagerUpdateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8, required=False)
+    company = serializers.PrimaryKeyRelatedField(queryset=Company.objects.all(), required=False)
+
+    class Meta:
+        model = User
+        fields = ('email', 'password', 'company')
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError('A user with this email already exists.')
+        return value
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop('password', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        if password:
+            instance.set_password(password)
+
+        instance.save()
+        return instance

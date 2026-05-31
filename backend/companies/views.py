@@ -22,8 +22,12 @@ class CompanyViewSet(
     permission_classes = (IsAuthenticated, IsAdmin)
 
     def get_permissions(self):
-        # Admins and HR managers may list and retrieve companies (read-only).
-        if self.action in ('list', 'retrieve'):
+        # Any authenticated user may retrieve a single company.
+        # The retrieve handler enforces own-company access for employees.
+        if self.action == 'retrieve':
+            return [IsAuthenticated()]
+        # Admins and HR managers may list companies (read-only).
+        if self.action == 'list':
             return [IsAuthenticated(), IsAdminOrHRManager()]
         return [IsAuthenticated(), IsAdmin()]
 

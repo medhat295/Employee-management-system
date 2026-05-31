@@ -7,7 +7,12 @@ from rest_framework_simplejwt.exceptions import TokenError
 
 from .models import User
 from .permissions import IsAdmin
-from .serializers import LoginSerializer, UserSerializer, HRManagerCreateSerializer
+from .serializers import (
+    HRManagerCreateSerializer,
+    HRManagerUpdateSerializer,
+    LoginSerializer,
+    UserSerializer,
+)
 
 
 class LoginView(APIView):
@@ -75,3 +80,35 @@ class UserListCreateView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         user = serializer.save()
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
+class HRManagerDetailView(APIView):
+    permission_classes = (IsAuthenticated, IsAdmin)
+
+    @staticmethod
+    def get_object(pk):
+        return User.objects.filter(pk=pk, role=User.Role.HR_MANAGER).first()
+
+    def get(self, request, pk):
+        user = self.get_object(pk)
+        if not user:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
+
+    def patch(self, request, pk):
+        user = self.get_object(pk)
+        if not user:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = HRManagerUpdateSerializer(user, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(UserSerializer(serializer.save()).data, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        user = self.get_object(pk)
+        if not user:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
