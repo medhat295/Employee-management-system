@@ -8,6 +8,7 @@ import { CompaniesPage } from './pages/Companies';
 import { DepartmentsPage } from './pages/Departments';
 import { EmployeesPage } from './pages/Employees';
 import { ProfilePage } from './pages/Profile';
+import { EmployeeReportPage } from './pages/EmployeeReport';
 import type { UserRole } from './types';
 import type { ReactNode } from 'react';
 
@@ -66,6 +67,14 @@ function App() {
         element={
           <ProtectedLayout allowedRoles={['admin', 'hr_manager']}>
             <EmployeesPage />
+          </ProtectedLayout>
+        }
+      />
+      <Route
+        path="/report"
+        element={
+          <ProtectedLayout allowedRoles={['admin', 'hr_manager']}>
+            <EmployeeReportPage />
           </ProtectedLayout>
         }
       />

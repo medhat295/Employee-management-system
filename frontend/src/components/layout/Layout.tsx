@@ -4,9 +4,11 @@ import { Sidebar } from './Sidebar';
 import { useAuth } from '../../context/AuthContext';
 
 const PAGE_TITLES: Record<string, string> = {
+  '/dashboard':   'Dashboard',
   '/companies':   'Companies',
   '/departments': 'Departments',
   '/employees':   'Employees',
+  '/report':      'Employee Report',
   '/profile':     'My Profile',
 };
 
