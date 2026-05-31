@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.models import User
@@ -50,6 +51,18 @@ class EmployeeSerializer(serializers.ModelSerializer):
         if User.objects.filter(email=value).exists():
             if not self.instance or self.instance.email != value:
                 raise serializers.ValidationError('A user with this email already exists.')
+        return value
+
+    def validate_mobile(self, value):
+        digits = ''.join(ch for ch in value if ch.isdigit())
+        if len(digits) != 11:
+            raise serializers.ValidationError('Mobile number must contain exactly 11 digits.')
+        return value
+
+    def validate_hire_date(self, value):
+        today = timezone.now().date()
+        if value > today:
+            raise serializers.ValidationError('Hire date cannot be in the future.')
         return value
 
     def validate(self, attrs):

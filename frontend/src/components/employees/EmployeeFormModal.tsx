@@ -113,7 +113,10 @@ export function EmployeeFormModal({
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Mobile <span className="text-red-500">*</span></label>
               <input type="tel" placeholder="+1 555 000 0000" className={fld(!!errors.mobile)}
-                {...register('mobile', { required: 'Required' })} />
+                {...register('mobile', {
+                  required: 'Required',
+                  validate: (v) => v.replace(/\D/g, '').length === 11 || 'Mobile must contain 11 digits',
+                })} />
               <Err msg={errors.mobile?.message} />
             </div>
             <div>
@@ -132,7 +135,18 @@ export function EmployeeFormModal({
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Hire Date <span className="text-red-500">*</span></label>
               <input type="date" className={fld(!!errors.hire_date)}
-                {...register('hire_date', { required: 'Required' })} />
+                {...register('hire_date', {
+                  required: 'Required',
+                  validate: (v) => {
+                    if (!v) return 'Required';
+                    const selected = new Date(v);
+                    const today = new Date();
+                    // zero time portion for accurate date-only comparison
+                    selected.setHours(0,0,0,0);
+                    today.setHours(0,0,0,0);
+                    return selected <= today || 'Hire date cannot be in the future';
+                  },
+                })} />
               <Err msg={errors.hire_date?.message} />
             </div>
           </div>
