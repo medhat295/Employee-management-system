@@ -5,24 +5,44 @@ from accounts.models import User
 from .models import Employee
 
 
+VALID_TRANSITIONS: dict[str, set[str]] = {
+    Employee.OnboardingStatus.APPLICATION_RECEIVED: {
+        Employee.OnboardingStatus.INTERVIEW_SCHEDULED,
+        Employee.OnboardingStatus.NOT_ACCEPTED,
+    },
+    Employee.OnboardingStatus.INTERVIEW_SCHEDULED: {
+        Employee.OnboardingStatus.HIRED,
+        Employee.OnboardingStatus.NOT_ACCEPTED,
+    },
+    Employee.OnboardingStatus.HIRED: {
+        Employee.OnboardingStatus.NOT_ACCEPTED,
+    },
+    Employee.OnboardingStatus.NOT_ACCEPTED: {
+        Employee.OnboardingStatus.APPLICATION_RECEIVED,
+    },
+}
+
+
 class EmployeeSerializer(serializers.ModelSerializer):
-    user_id = serializers.IntegerField(read_only=True)
-    company_id = serializers.IntegerField(read_only=True)
+    user_id       = serializers.IntegerField(read_only=True)
+    company_id    = serializers.IntegerField(read_only=True)
     department_id = serializers.IntegerField(read_only=True)
     days_employed = serializers.IntegerField(read_only=True)
 
     class Meta:
-        model = Employee
+        model  = Employee
         fields = (
             'id', 'user_id',
             'company', 'company_id',
             'department', 'department_id',
             'name', 'email', 'mobile', 'address', 'title', 'hire_date',
-            'status', 'days_employed', 'created_at', 'updated_at',
+            'status', 'onboarding_status',
+            'days_employed', 'created_at', 'updated_at',
         )
-        read_only_fields = ('id', 'created_at', 'updated_at')
+        # onboarding_status is read-only here; use the /transition/ endpoint to advance it
+        read_only_fields = ('id', 'onboarding_status', 'created_at', 'updated_at')
         extra_kwargs = {
-            'company': {'write_only': True},
+            'company':    {'write_only': True},
             'department': {'write_only': True},
         }
 
@@ -33,12 +53,11 @@ class EmployeeSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
-        company = attrs.get('company')
+        company    = attrs.get('company')
         department = attrs.get('department')
 
-        # For partial updates, fall back to the existing instance values
         if self.instance:
-            company = company or self.instance.company
+            company    = company    or self.instance.company
             department = department or self.instance.department
 
         if company and department and department.company_id != company.id:
@@ -66,3 +85,25 @@ class EmployeeCreateSerializer(EmployeeSerializer):
             is_active=is_active,
         )
         return Employee.objects.create(user=user, **validated_data)
+
+
+class TransitionSerializer(serializers.Serializer):
+    """Validates that the requested onboarding_status transition is permitted."""
+
+    onboarding_status = serializers.ChoiceField(
+        choices=Employee.OnboardingStatus.choices,
+    )
+
+    def validate_onboarding_status(self, value):
+        current = self.context.get('current_status', '')
+        allowed = VALID_TRANSITIONS.get(current, set())
+        if value not in allowed:
+            if not allowed:
+                detail = 'This is a final state — no further transitions are allowed.'
+            else:
+                detail = (
+                    f"Cannot transition from '{current}' to '{value}'. "
+                    f"Allowed: {', '.join(sorted(allowed))}."
+                )
+            raise serializers.ValidationError(detail)
+        return value

@@ -1,5 +1,10 @@
 export type UserRole = 'admin' | 'hr_manager' | 'employee';
 export type EmployeeStatus = 'active' | 'inactive';
+export type OnboardingStatus =
+  | 'application_received'
+  | 'interview_scheduled'
+  | 'hired'
+  | 'not_accepted';
 
 export interface User {
   id: number;
@@ -39,6 +44,7 @@ export interface Employee {
   title: string;
   hire_date: string;
   status: EmployeeStatus;
+  onboarding_status: OnboardingStatus;
   days_employed: number;
   created_at: string;
   updated_at: string;

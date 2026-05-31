@@ -4,8 +4,14 @@ from django.utils import timezone
 
 class Employee(models.Model):
     class Status(models.TextChoices):
-        ACTIVE = 'active', 'Active'
+        ACTIVE   = 'active',   'Active'
         INACTIVE = 'inactive', 'Inactive'
+
+    class OnboardingStatus(models.TextChoices):
+        APPLICATION_RECEIVED = 'application_received', 'Application Received'
+        INTERVIEW_SCHEDULED  = 'interview_scheduled',  'Interview Scheduled'
+        HIRED                = 'hired',                'Hired'
+        NOT_ACCEPTED         = 'not_accepted',         'Not Accepted'
 
     user = models.OneToOneField(
         'accounts.User',
@@ -22,13 +28,20 @@ class Employee(models.Model):
         on_delete=models.CASCADE,
         related_name='employees',
     )
-    name = models.CharField(max_length=255)
-    email = models.EmailField(unique=True)
-    mobile = models.CharField(max_length=50)
+    name    = models.CharField(max_length=255)
+    email   = models.EmailField(unique=True)
+    mobile  = models.CharField(max_length=50)
     address = models.CharField(max_length=500, blank=True, default='')
-    title = models.CharField(max_length=255)
+    title   = models.CharField(max_length=255)
     hire_date = models.DateField()
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.ACTIVE,
+    )
+    onboarding_status = models.CharField(
+        max_length=30,
+        choices=OnboardingStatus.choices,
+        default=OnboardingStatus.APPLICATION_RECEIVED,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

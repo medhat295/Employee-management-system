@@ -27,6 +27,7 @@ class Migration(migrations.Migration):
                 ('title', models.CharField(max_length=255)),
                 ('hire_date', models.DateField()),
                 ('status', models.CharField(choices=[('active', 'Active'), ('inactive', 'Inactive')], default='active', max_length=20)),
+                ('onboarding_status', models.CharField(choices=[('application_received', 'Application Received'), ('interview_scheduled', 'Interview Scheduled'), ('hired', 'Hired'), ('not_accepted', 'Not Accepted')], default='application_received', max_length=30)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('company', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='employees', to='companies.company')),

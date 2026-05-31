@@ -9,7 +9,7 @@ from rest_framework.viewsets import GenericViewSet
 from accounts.models import User
 from accounts.permissions import IsAdminOrHRManager
 from .models import Employee
-from .serializers import EmployeeSerializer, EmployeeCreateSerializer
+from .serializers import EmployeeSerializer, EmployeeCreateSerializer, TransitionSerializer
 
 
 class EmployeeViewSet(
@@ -27,9 +27,9 @@ class EmployeeViewSet(
         return EmployeeSerializer
 
     def get_permissions(self):
-        if self.action in ('list', 'create', 'partial_update', 'destroy'):
+        if self.action in ('list', 'create', 'partial_update', 'destroy', 'transition'):
             return [IsAuthenticated(), IsAdminOrHRManager()]
-        # retrieve and me: authenticated only; object-level checks in each method
+        # retrieve and me: authenticated only; object-level checks inside each method
         return [IsAuthenticated()]
 
     def get_queryset(self):
@@ -39,7 +39,6 @@ class EmployeeViewSet(
             if user.role == User.Role.HR_MANAGER:
                 return qs.filter(company=user.company).order_by('name')
             return qs.order_by('company__name', 'name')
-        # Detail actions use the full queryset; access is enforced inside each method
         return qs
 
     def _check_company_access(self, company_id):
@@ -69,7 +68,6 @@ class EmployeeViewSet(
             self._check_company_access(serializer.validated_data['company'].id)
         updated = serializer.save()
 
-        # Keep User.is_active in sync with Employee.status
         new_status = serializer.validated_data.get('status')
         if new_status is not None:
             updated.user.is_active = (new_status == Employee.Status.ACTIVE)
@@ -90,3 +88,30 @@ class EmployeeViewSet(
         except Employee.DoesNotExist:
             raise NotFound('No employee profile found for this user.')
         return Response(self.get_serializer(employee).data)
+
+    @action(detail=True, methods=['post'], url_path='transition')
+    def transition(self, request, pk=None):
+        instance = get_object_or_404(Employee, pk=pk)
+        self._check_company_access(instance.company_id)
+
+        serializer = TransitionSerializer(
+            data=request.data,
+            context={'current_status': instance.onboarding_status},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        new_onboarding = serializer.validated_data['onboarding_status']
+        instance.onboarding_status = new_onboarding
+
+        # Auto-sync active/inactive status with terminal onboarding states
+        if new_onboarding == Employee.OnboardingStatus.HIRED:
+            instance.status = Employee.Status.ACTIVE
+            instance.user.is_active = True
+            instance.user.save(update_fields=['is_active'])
+        elif new_onboarding == Employee.OnboardingStatus.NOT_ACCEPTED:
+            instance.status = Employee.Status.INACTIVE
+            instance.user.is_active = False
+            instance.user.save(update_fields=['is_active'])
+
+        instance.save()
+        return Response(EmployeeSerializer(instance).data)
