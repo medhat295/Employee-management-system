@@ -51,10 +51,12 @@ class EmployeeCreateSerializer(EmployeeSerializer):
     @transaction.atomic
     def create(self, validated_data):
         initial_password = validated_data.pop('initial_password')
+        is_active = validated_data.get('status', Employee.Status.ACTIVE) != Employee.Status.INACTIVE
         user = User.objects.create_user(
             email=validated_data['email'],
             password=initial_password,
             role=User.Role.EMPLOYEE,
             company=validated_data['company'],
+            is_active=is_active,
         )
         return Employee.objects.create(user=user, **validated_data)

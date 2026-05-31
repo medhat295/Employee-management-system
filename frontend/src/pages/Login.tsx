@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import {
-  Eye, EyeOff, Loader2, Mail, Lock,
+  Eye, EyeOff, Loader2, Mail, Lock, AlertCircle,
   UserCheck, Network, KeyRound,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -34,6 +34,7 @@ const CAPABILITIES = [
 
 export function Login() {
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const formRef = useRef<HTMLFormElement>(null);
@@ -59,6 +60,7 @@ export function Login() {
   };
 
   const onSubmit = async ({ email, password }: FormData) => {
+    setErrorMsg('');
     try {
       await login(email, password);
       const raw = localStorage.getItem('auth_tokens');
@@ -66,8 +68,13 @@ export function Login() {
         const { user: u } = JSON.parse(raw) as AuthTokens;
         navigate(u.role === 'employee' ? '/profile' : '/companies', { replace: true });
       }
-    } catch {
-      // toast shown by axios interceptor
+    } catch (err: unknown) {
+      const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;
+      const msg =
+        (Array.isArray(data?.non_field_errors) ? String(data.non_field_errors[0]) : null) ??
+        (typeof data?.detail === 'string' ? data.detail : null) ??
+        'Something went wrong. Please try again.';
+      setErrorMsg(msg);
     }
   };
 
@@ -346,6 +353,15 @@ export function Login() {
                   <p className="mt-1.5 text-xs text-red-500">{errors.password.message}</p>
                 )}
               </div>
+
+              {/* Inline error */}
+              {errorMsg && (
+                <div className="flex items-start gap-3 px-4 py-3 rounded-xl
+                  bg-red-50 border border-red-200">
+                  <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" aria-hidden />
+                  <p className="text-sm text-red-600 leading-snug">{errorMsg}</p>
+                </div>
+              )}
 
               {/* Submit */}
               <button

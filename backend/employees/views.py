@@ -67,7 +67,14 @@ class EmployeeViewSet(
         serializer.is_valid(raise_exception=True)
         if 'company' in serializer.validated_data:
             self._check_company_access(serializer.validated_data['company'].id)
-        serializer.save()
+        updated = serializer.save()
+
+        # Keep User.is_active in sync with Employee.status
+        new_status = serializer.validated_data.get('status')
+        if new_status is not None:
+            updated.user.is_active = (new_status == Employee.Status.ACTIVE)
+            updated.user.save(update_fields=['is_active'])
+
         return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):

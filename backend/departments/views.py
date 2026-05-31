@@ -20,6 +20,13 @@ class DepartmentViewSet(
     serializer_class = DepartmentSerializer
     permission_classes = (IsAuthenticated, IsAdminOrHRManager)
 
+    def get_permissions(self):
+        # Any authenticated user may retrieve a single department.
+        # get_queryset already scopes non-admins to their own company.
+        if self.action == 'retrieve':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminOrHRManager()]
+
     def get_queryset(self):
         user = self.request.user
         if user.role == User.Role.ADMIN:
