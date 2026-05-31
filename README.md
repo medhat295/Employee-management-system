@@ -36,7 +36,7 @@ A full-stack web application for managing companies, departments, employees, and
 | **User** | `id`, `email` (unique), `role` (admin / hr_manager / employee), `company` (FK, nullable), `is_active` |
 | **Company** | `id`, `name` (unique), `logo` (image, optional), `created_at`, `updated_at` |
 | **Department** | `id`, `name`, `company` (FK), `created_at`, `updated_at` |
-| **Employee** | `id`, `user` (OneToOne FK), `company` (FK), `department` (FK), `name`, `email`, `mobile`, `address`, `title`, `hire_date`, `status` (active / inactive) |
+| **Employee** | `id`, `user` (OneToOne FK), `company` (FK), `department` (FK), `name`, `email`, `mobile`, `address`, `title`, `hire_date`, `status` (active / inactive), `onboarding_status` (application_received / interview_scheduled / hired / not_accepted) |
 
 ### Relationships
 
@@ -61,8 +61,10 @@ User ──── Employee          (one-to-one: each employee has exactly one u
 - **Company Management** — full CRUD for admins; read-only view for HR managers
 - **Department Management** — full CRUD scoped per company for admins and HR managers
 - **Employee Management** — full CRUD scoped per company; employees can view their own profile
+- **Onboarding Workflow** — employee records move through `application_received`, `interview_scheduled`, `hired`, and `not_accepted` through a controlled transition endpoint
 - **HR Manager Creation** — admins can create HR manager accounts linked to a specific company
 - **Employee Status Sync** — toggling an employee inactive automatically disables their login
+- **Employee Identity Sync** — updating an employee email or company updates the linked login account; deleting an employee removes the linked user account
 - **Computed Fields** — `days_employed` calculated server-side from hire date; `total_departments` and `total_employees` aggregated on Company
 - **Summary Dashboard** — animated stat cards (companies, departments, employees), recent employees table, department overview; default landing page for Admin and HR Manager
 - **Employee Report** — printable/exportable table of active employees with name/email/mobile/title/hire date/days employed/company/department; filter by company, department, or name search
@@ -116,8 +118,8 @@ Employee-management-system/
 │   │
 │   ├── employees/              # Employee CRUD (company-scoped)
 │   │   ├── models.py
-│   │   ├── serializers.py      # EmployeeSerializer, EmployeeCreateSerializer
-│   │   ├── views.py            # EmployeeViewSet (includes /me endpoint)
+│   │   ├── serializers.py      # EmployeeSerializer, EmployeeCreateSerializer, TransitionSerializer
+│   │   ├── views.py            # EmployeeViewSet (includes /me and /transition endpoints)
 │   │   └── urls.py
 │   │
 │   ├── core/                   # Django project config
@@ -162,7 +164,9 @@ Employee-management-system/
 │   ├── requirements.txt            # Django-only dependencies
 │   └── .env.example
 ├── frontend/
-│   └── Dockerfile
+│   ├── Dockerfile
+│   ├── package.json
+│   └── src/
 ├── docker-compose.yml
 ├── requirements.txt                # Root (global/unrelated — not used by Docker)
 └── README.md
@@ -239,6 +243,19 @@ CREATE DATABASE employee_management;
 python manage.py migrate
 python manage.py createsuperuser
 ```
+
+**Optional: seed demo data**
+
+```bash
+python manage.py seed --clear
+```
+
+This creates:
+
+- `admin@system.com` / `Admin@1234`
+- one HR manager per seeded company
+- departments for each company
+- employees with onboarding states and login activation synced from their employee status
 
 **6. Start the development server**
 
@@ -423,6 +440,7 @@ Authorization: Bearer <access_token>
 | `PATCH` | `/api/employees/{id}/` | Admin, HR Manager | Partial update (own company only) |
 | `DELETE` | `/api/employees/{id}/` | Admin, HR Manager | Delete employee + user account |
 | `GET` | `/api/employees/me/` | Any authenticated | Returns the current user's employee profile |
+| `POST` | `/api/employees/{id}/transition/` | Admin, HR Manager | Advance onboarding status using the allowed workflow |
 
 \* Employees can only retrieve their own profile.
 
@@ -440,9 +458,20 @@ Authorization: Bearer <access_token>
   "department": 2,
   "initial_password": "secret123"
 }
-
-
 ```
+
+**Transition request body:**
+
+```json
+{ "onboarding_status": "interview_scheduled" }
+```
+
+Allowed transitions:
+
+- `application_received` -> `interview_scheduled`, `not_accepted`
+- `interview_scheduled` -> `hired`, `not_accepted`
+- `hired` -> `not_accepted`
+- `not_accepted` -> `application_received`
 
 ---
 

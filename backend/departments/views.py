@@ -31,6 +31,8 @@ class DepartmentViewSet(
         user = self.request.user
         if user.role == User.Role.ADMIN:
             return Department.objects.all().order_by('company', 'name')
+        if user.role == User.Role.EMPLOYEE:
+            return Department.objects.filter(employees__user=user).distinct()
         return Department.objects.filter(company=user.company).order_by('name')
 
     def _assert_company_access(self, company_id):

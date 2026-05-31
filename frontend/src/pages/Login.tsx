@@ -41,7 +41,7 @@ export function Login() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      navigate(user.role === 'employee' ? '/profile' : '/companies', { replace: true });
+      navigate(user.role === 'employee' ? '/profile' : '/dashboard', { replace: true });
     }
   }, [isAuthenticated, user, navigate]);
 
@@ -66,7 +66,7 @@ export function Login() {
       const raw = localStorage.getItem('auth_tokens');
       if (raw) {
         const { user: u } = JSON.parse(raw) as AuthTokens;
-        navigate(u.role === 'employee' ? '/profile' : '/companies', { replace: true });
+        navigate(u.role === 'employee' ? '/profile' : '/dashboard', { replace: true });
       }
     } catch (err: unknown) {
       const data = (err as { response?: { data?: Record<string, unknown> } })?.response?.data;

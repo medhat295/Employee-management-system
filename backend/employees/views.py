@@ -68,17 +68,26 @@ class EmployeeViewSet(
             self._check_company_access(serializer.validated_data['company'].id)
         updated = serializer.save()
 
+        user_fields_to_update = []
+        if 'email' in serializer.validated_data:
+            updated.user.email = updated.email
+            user_fields_to_update.append('email')
+        if 'company' in serializer.validated_data:
+            updated.user.company = updated.company
+            user_fields_to_update.append('company')
         new_status = serializer.validated_data.get('status')
         if new_status is not None:
             updated.user.is_active = (new_status == Employee.Status.ACTIVE)
-            updated.user.save(update_fields=['is_active'])
+            user_fields_to_update.append('is_active')
+        if user_fields_to_update:
+            updated.user.save(update_fields=user_fields_to_update)
 
         return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
         instance = get_object_or_404(Employee, pk=kwargs['pk'])
         self._check_company_access(instance.company_id)
-        instance.delete()
+        instance.user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['get'], url_path='me')

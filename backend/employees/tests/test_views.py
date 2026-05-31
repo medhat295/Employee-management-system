@@ -204,6 +204,27 @@ class EmployeePartialUpdateTests(EmployeeAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["title"], "Senior Software Engineer")
 
+    def test_updating_email_syncs_linked_user_email(self):
+        self.client.force_authenticate(self.admin)
+        url = reverse("employee-detail", args=[self.emp_a.pk])
+        response = self.client.patch(url, {"email": "ahmed.updated@niletech.io"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.emp_a.refresh_from_db()
+        self.emp_user_a.refresh_from_db()
+        self.assertEqual(self.emp_a.email, "ahmed.updated@niletech.io")
+        self.assertEqual(self.emp_user_a.email, "ahmed.updated@niletech.io")
+
+    def test_updating_company_syncs_linked_user_company(self):
+        dept_ops = make_dept("Operations", self.company_b)
+        self.client.force_authenticate(self.admin)
+        url = reverse("employee-detail", args=[self.emp_a.pk])
+        response = self.client.patch(url, {"company": self.company_b.pk, "department": dept_ops.pk})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.emp_a.refresh_from_db()
+        self.emp_user_a.refresh_from_db()
+        self.assertEqual(self.emp_a.company_id, self.company_b.pk)
+        self.assertEqual(self.emp_user_a.company_id, self.company_b.pk)
+
     def test_setting_status_inactive_deactivates_user(self):
         self.client.force_authenticate(self.hr_a)
         url = reverse("employee-detail", args=[self.emp_a.pk])
@@ -240,6 +261,13 @@ class EmployeeDestroyTests(EmployeeAPITestCase):
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Employee.objects.filter(pk=self.emp_a.pk).exists())
+
+    def test_deleting_employee_also_deletes_linked_user(self):
+        self.client.force_authenticate(self.admin)
+        url = reverse("employee-detail", args=[self.emp_a.pk])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(User.objects.filter(pk=self.emp_user_a.pk).exists())
 
     def test_hr_cannot_delete_employee_in_other_company(self):
         self.client.force_authenticate(self.hr_a)
